@@ -1,0 +1,8 @@
+{
+  "name": "@masterclass/module-01-solution",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "tsc", "start": "tsx src/demo.ts", "test": "vitest run" },
+  "dependencies": { "dotenv": "^16.4.7", "openai": "^4.86.1", "zod": "^3.24.2" },
+  "devDependencies": { "@types/node": "^22.13.0", "tsx": "^4.19.2", "typescript": "^5.7.3", "vitest": "^3.0.5" }
+}

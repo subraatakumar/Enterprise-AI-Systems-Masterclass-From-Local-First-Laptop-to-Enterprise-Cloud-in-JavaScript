@@ -7,7 +7,11 @@
 [![Protocol: OpenAI REST /v1](https://img.shields.io/badge/Protocol-OpenAI%20REST%20%2Fv1-orange.svg)](#)
 [![Deployment: Docker Multi--Arch](https://img.shields.io/badge/Deploy-Docker%20arm64%20%7C%20amd64-purple.svg)](#)
 
-A comprehensive, code-complete masterclass designed for senior JavaScript/TypeScript engineers. Build air-gapped, local-first autonomous agents and resilient AI systems on your personal machine (Apple Silicon / standard laptop), then deploy them directly onto enterprise NVIDIA clusters or private VPCs with zero code changes.
+A practical masterclass designed for fullstack JavaScript/TypeScript engineers who are new to AI. Build air-gapped, local-first AI products on your personal machine, then deploy them to enterprise infrastructure or private cloud environments with minimal application changes.
+
+## Course Strategy
+
+This repository is the platform-neutral source of truth for the course. Read [`COURSE_STRATEGY.md`](./COURSE_STRATEGY.md) for the audience, teaching approach, evolving capstone, module contract, technology policy, and continuity rules. Content may be delivered through YouTube, Udemy, an LMS, or downloadable materials without changing the technical curriculum.
 
 > **Core Philosophy:** Zero cloud vendor lock-in. Zero third-party API bills. Every model runs locally over standardized OpenAI-compliant REST endpoints (`/v1`) and the open Model Context Protocol (MCP).
 
@@ -35,7 +39,7 @@ A comprehensive, code-complete masterclass designed for senior JavaScript/TypeSc
 │                                                                        │
 │   [Development: Local Mac]             [Production: Enterprise Cloud]  │
 │   • Apple Metal (Unified RAM)          • Linux / NVIDIA GPU Clusters   │
-│   • Ollama / llama.cpp                 • NVIDIA NIM / vLLM (CUDA)      │
+│   • Ollama / llama.cpp                 • NVIDIA NIM / vLLM / Azure      │
 └────────────────────────────────────────────────────────────────────────┘
 
 ```
@@ -91,42 +95,13 @@ Each module is an intensive 30- to 45-minute lesson with starter code, exercises
 
 ---
 
-## ⚡ 2-Minute Quickstart
-
-### Prerequisites
-- Node.js 22+ (LTS)
-- Docker Desktop or OrbStack
-- [Ollama](https://ollama.com/) (for native Apple Silicon GPU acceleration)
-
-### 1. Pull the Base Model
-```bash
-# Pull an open-weight instruction model and embedding model
-ollama pull llama3.3:70b   # Or llama3.2:3b / qwen2.5:7b for lighter machines
-ollama pull nomic-embed-text
-
-```
-
-### 2. Verify Your Environment
-
-```bash
-git clone [https://github.com/subraatakumar/Enterprise-AI-Systems-Masterclass-From-Local-First-Laptop-to-Enterprise-Cloud-in-JavaScript.git](https://github.com/subraatakumar/Enterprise-AI-Systems-Masterclass-From-Local-First-Laptop-to-Enterprise-Cloud-in-JavaScript.git)
-cd Enterprise-AI-Systems-Masterclass-From-Local-First-Laptop-to-Enterprise-Cloud-in-JavaScript
-
-# Install monorepo dependencies
-npm install
-
-# Test connection to your local OpenAI-compatible endpoint
-npm run verify:env
-
-```
-
 ---
 
-## 🛡 Enterprise Compliance & Safety Guarantees
+## 🛡 Enterprise Compliance & Safety Guidance
 
 This curriculum is explicitly designed around enterprise InfoSec standards:
 
-* **SOC 2 & GDPR Aligned:** Zero external telemetry or prompt logging to third parties.
+* **Deployment-aware privacy:** Supports private and air-gapped deployment patterns; actual compliance depends on the complete environment and operating controls.
 * **OWASP Top 10 for LLMs Defended:** Dedicated patterns mitigating Prompt Injection (LLM01), Insecure Output Handling (LLM02), and Excessive Agency (LLM08).
 * **Deterministic Execution:** No unbounded agent loops; all operations enforce hard SLA limits and schema contracts.
 
@@ -134,4 +109,4 @@ This curriculum is explicitly designed around enterprise InfoSec standards:
 
 ## 📄 License
 
-This repository is licensed under the [MIT License](https://www.google.com/search?q=LICENSE).
+This repository is licensed under the [MIT License](./LICENSE).

@@ -1,0 +1,9 @@
+# Private instructor materials and unreleased recording scripts
+modules/**/VIDEO_SCRIPT.md
+modules/**/INSTRUCTOR_SCRIPT.md
+
+# Local environment and generated dependencies
+.env
+node_modules/
+dist/
+coverage/

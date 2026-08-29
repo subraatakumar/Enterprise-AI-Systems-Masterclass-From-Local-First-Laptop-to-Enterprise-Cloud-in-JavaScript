@@ -51,7 +51,7 @@ npm run build
 
 ```env
 LLM_BASE_URL=http://localhost:11434/v1
-LLM_API_KEY=local-dev-key
+LLM_API_KEY=ollama
 LLM_MODEL=llama3.2:3b
 ```
 
@@ -60,6 +60,18 @@ For a compatible provider, change the URL, key, and deployed model name. The imp
 ## Exercise
 
 Implement the numbered TODOs in `starter/src/index.ts` in two phases. First make the simplest successful request work and run `npm start`. Then complete the safety TODOs and compare with `solution/src/index.ts`.
+
+The `starter/steps/` directory contains read-only checkpoints used by the lecture:
+
+| Version | Purpose |
+| --- | --- |
+| `01-scaffold.ts` | Original TODO scaffold |
+| `02-configured-client.ts` | TODOs 1–2: resolve configuration and construct the client |
+| `03-happy-path.ts` | TODOs 3–4: make a real request and return the response |
+| `04-validated.ts` | TODO 5: validate input and response data with Zod |
+| `05-hardened.ts` | TODO 6: final timeout and error-handling behavior |
+
+Edit only `starter/src/index.ts`. Use the checkpoint files to compare progress or recover if you fall behind during the video.
 
 ## Build → Break → Harden → Verify → Integrate
 

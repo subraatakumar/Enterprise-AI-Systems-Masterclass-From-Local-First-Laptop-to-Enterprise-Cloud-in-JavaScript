@@ -18,7 +18,7 @@ Treat those files as the current course decisions. If they conflict with one ano
 
 - Do not claim that a module, source file, test, command, dependency, runtime, or deployment configuration exists unless it exists in the repository or has been verified externally.
 - Do not invent Modules 02–20, starter projects, solution projects, package files, CI workflows, Dockerfiles, or cloud configuration.
-- The current repository is documentation-first. Module 01 is currently described in its README; do not represent its embedded examples as runnable files.
+- The repository is documentation-first overall, but Module 01 includes runnable starter and solution workspaces. Verify each later module individually before representing it as implemented.
 - Distinguish clearly between planned, documented, implemented, and verified functionality.
 - Do not report tests as passing unless they were actually run and passed.
 - Do not report a cloud provider integration, security guarantee, compliance status, or air-gapped deployment as implemented unless there is evidence in the repository.

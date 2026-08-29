@@ -56,6 +56,8 @@ These are network addresses, not provider choices.
 
 Implement `runChatCompletion` with `client.chat.completions.create({ model, messages, temperature, stream: false })`. Validate the request before calling the SDK and the response before returning it. Pass an `AbortSignal` to enforce the request SLA.
 
+Move through `starter/steps/01-scaffold.ts` to `05-hardened.ts` in order. The instructor edits `starter/src/index.ts`; checkpoint files are comparison references, not files learners edit.
+
 Load local configuration with `dotenv/config`. Resolve settings in this order: explicit function configuration, environment variables, then local defaults. This lets the same code use Ollama locally and another compatible endpoint later.
 
 ## Verify

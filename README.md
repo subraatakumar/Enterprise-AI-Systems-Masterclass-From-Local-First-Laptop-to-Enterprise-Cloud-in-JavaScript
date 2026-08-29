@@ -135,9 +135,3 @@ This curriculum is explicitly designed around enterprise InfoSec standards:
 ## 📄 License
 
 This repository is licensed under the [MIT License](https://www.google.com/search?q=LICENSE).
-
-```
-
-<FollowUp label="Shall we create the folder structure and `npm run verify:env` script for Module 01?" query="Provide the starter directory layout and the `verify:env` Node.js script to test the local Ollama connection for Module 01."/>
-
-```

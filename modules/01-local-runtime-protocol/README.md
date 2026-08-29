@@ -1,11 +1,3 @@
-Switching to the official `openai` npm package is a strategic upgrade:
-
-1. **Industry Standard Types & Retries:** You gain battle-tested TypeScript interfaces, automated exponential backoff retries, and streaming helpers out of the box.
-2. **Zero Lock-In via `baseURL` Override:** Pointing `new OpenAI({ baseURL: 'http://localhost:11434/v1', apiKey: 'ollama' })` redirects traffic to your local Apple Silicon GPU or NVIDIA cluster without contacting OpenAI’s servers.
-
-The rewritten Module 1 chapter below is tailored for a complete AI beginner, explaining all foundational concepts in plain English while building production code with the `openai` npm package.
-
----
 
 # Module 01: The Local LLM Runtime & The OpenAI SDK
 

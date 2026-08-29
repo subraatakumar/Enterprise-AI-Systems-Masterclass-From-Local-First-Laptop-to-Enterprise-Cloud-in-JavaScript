@@ -1,84 +1,370 @@
-# Module 01: Configurable AI Inference with the OpenAI Node.js SDK
+Switching to the official `openai` npm package is a strategic upgrade:
 
-> **Duration:** 35–45 minutes
-> **Primary concept:** A provider-neutral AI client configured by endpoint and credentials
-> **Capstone increment:** A validated inference boundary
+1. **Industry Standard Types & Retries:** You gain battle-tested TypeScript interfaces, automated exponential backoff retries, and streaming helpers out of the box.
+2. **Zero Lock-In via `baseURL` Override:** Pointing `new OpenAI({ baseURL: 'http://localhost:11434/v1', apiKey: 'ollama' })` redirects traffic to your local Apple Silicon GPU or NVIDIA cluster without contacting OpenAI’s servers.
 
-## Learner outcome
+The rewritten Module 1 chapter below is tailored for a complete AI beginner, explaining all foundational concepts in plain English while building production code with the `openai` npm package.
 
-Use the OpenAI Node.js package to call Ollama or another compatible inference service by changing configuration rather than application code.
+---
 
-## Start Ollama locally
+# Module 01: The Local LLM Runtime & The OpenAI SDK
 
-```bash
-ollama list
+---
+
+## 1.1 The Failure Mode: The Trap of Proprietary Cloud SDKs
+
+When web developers begin adding AI capabilities to a Node.js backend, they usually start by installing a provider's specialized library (such as `@google/genai` or `@anthropic-ai/sdk`). They paste an API key into a `.env` file, call a function, and watch text stream to the terminal.
+
+For weekend side projects, this works. In an enterprise system, binding directly to proprietary cloud software development kits introduces three major production obstacles:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Proprietary SDK Bindings                 │
+├──────────────────────────────┬──────────────────────────────┤
+│ 1. Zero Data Sovereignty     │ Internal corporate data,     │
+│                              │ schema layouts, and PII exit │
+│                              │ to third-party cloud APIs.   │
+├──────────────────────────────┼──────────────────────────────┤
+│ 2. Fragile Vendor Lock-In    │ Migrating models forces a    │
+│                              │ complete rewrite of SDK code,│
+│                              │ tool calls, and error handling│
+├──────────────────────────────┼──────────────────────────────┤
+│ 3. Unbounded R&D Expenses    │ Every automated test run     │
+│                              │ and CI/CD build incurs real  │
+│                              │ per-token API charges.       │
+└──────────────────────────────┴──────────────────────────────┘
+
 ```
 
-If Ollama is not installed or running, install it for your operating system and start the Ollama application or service first. Docker Compose is optional and is included only for a later containerized deployment variation.
+The enterprise solution is not to create custom client adapters from scratch. Instead, we use the industry-standard **`openai` npm package**—not to call OpenAI's paid cloud, but as a **universal client library**.
 
-Review the [official Ollama Llama 3.2 model page](https://ollama.com/library/llama3.2) before choosing a model. It lists 1B and 3B variants. The `B` means billion parameters, or learned values in the model. We use 3B because it balances local hardware requirements with enough capability for instruction-following and basic tool-use demonstrations. Exact sizes and availability can change, so the official page is the current reference.
+By overriding the client's `baseURL` parameter, we redirect requests to an air-gapped, local inference daemon such as **Ollama** or **vLLM**. Your development costs drop to $0. The exact same TypeScript code developed on your laptop runs without changes on enterprise NVIDIA servers; only the target URL changes.
 
-Download the selected model and verify it is available:
+---
 
-```bash
-ollama pull llama3.2:3b
-ollama list
+## 1.2 The Mental Model: What is an LLM Doing?
+
+Before looking at code, let's remove the mystery. A Large Language Model (LLM) is not a sentient brain, a database, or a traditional procedural program.
+
+> **The Core Mental Model:**
+> An LLM is a **probabilistic autocomplete engine**. Given a preceding sequence of text, its sole job is to calculate and predict the single most likely token that should come next.
+
+Four fundamental concepts underpin how an LLM operates:
+
+### 1. Tokens: How Models Read Text
+
+Computers do not process letters, words, or sentences; they process numbers. Before text reaches the model, a pre-processor called a **tokenizer** splits the string into chunks called **tokens**.
+
+```
+Input String:   "Database connection failed"
+                      │
+Tokenized:      ["Data", "base", " connection", " failed"]
+                      │
+Token IDs:      [14521,   3829,       4912,         3491]
+
 ```
 
-## Endpoint selection
+* In English, a token represents roughly 3 to 4 characters (or around 0.75 words).
+* Common words like `"the"` are single tokens. Identifiers such as `getUserById` or code symbols are split into multiple sub-word tokens.
+* When the model generates a response, it does **not** create a paragraph all at once. It runs an autoregressive loop: it inspects the input, predicts **one token**, appends it to the sequence, and runs again until it outputs a stop token.
 
-| Node.js client | Ollama | `LLM_BASE_URL` |
+### 2. What is a "Model" and What Does `3b` Mean?
+
+When running `ollama pull llama3.2:3b`, you download roughly 2 GB of pre-calculated numeric values called **weights** or **parameters**.
+
+* **Parameters** are numbers representing learned relationships across training data.
+* The suffix **`3b`** indicates **3 billion parameters**; a **`70b`** model contains 70 billion parameters.
+* Think of the model weight file as a large, compiled, read-only mathematical function. It takes an array of token IDs, performs matrix multiplications across billions of parameters, and outputs a probability score for every token in its vocabulary.
+
+### 3. The Conversation Thread & The Three Roles
+
+LLM engines are completely **stateless**. The server does not remember previous requests. To sustain a conversation, the full chat history must be passed with every turn.
+
+That history is formatted as an array of message objects, each marked with a specific `role`:
+
+| Role | Purpose | Software Analogy |
 | --- | --- | --- |
-| Host machine | Host machine | `http://localhost:11434/v1` |
-| Docker container | Host machine | `http://host.docker.internal:11434/v1` |
-| Docker container | Same Compose network | `http://inference:11434/v1` |
+| **`system`** | High-level instructions, behavioral constraints, and output requirements. | The **Configuration / Policy** file. Dictates rules and behavior. |
+| **`user`** | The question, prompt, or runtime data submitted by the user or application. | The **Runtime Request Payload**. |
+| **`assistant`** | Prior answers generated by the model. | The **Execution Log** that provides conversational context. |
 
-Inside a container, `localhost` means that container. `host.docker.internal` reaches the host, while `inference` is the Compose service name. The primary lesson runs both the Node.js client and Ollama directly on the host, so it uses `localhost`.
+### 4. Sampling & Temperature: Controlling Determinism
 
-## Run the solution
+When an LLM prepares the next token, it produces a ranked list of candidate words with probability percentages:
+
+```
+Context: "The HTTP response status code is"
+Candidates:
+  • " 200"   --> 74% probability
+  • " 404"   --> 16% probability
+  • " 500"   --> 9%  probability
+  • " pizza" --> 0.0001% probability
+
+```
+
+**Temperature** is a floating-point value (typically between `0.0` and `2.0`) controlling how the engine samples from that list:
+
+* **Low Temperature (`0.0` to `0.2`):** *"Greedy / Deterministic"*. The engine consistently selects the top-ranked token (`" 200"`). For enterprise APIs, structured JSON extraction, and backend tools, **always use low temperatures ($0.0 - 0.2$)**.
+* **High Temperature (`0.7` to `1.2`):** *"Creative / Variable"*. The engine introduces randomness by sampling lower-ranked candidates. Useful for brainstorming or narrative writing, but problematic for reliable backend services.
+
+---
+
+## 1.3 The Protocol: Repurposing the OpenAI Node SDK
+
+The `openai` npm package defaults its network requests to `[https://api.openai.com/v1](https://api.openai.com/v1)`. By setting `baseURL`, we re-route the SDK to our local instance:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Node.js Application                      │
+│                                                             │
+│   import OpenAI from "openai";                              │
+│   const client = new OpenAI({                               │
+│     baseURL: "http://localhost:11434/v1",                   │
+│     apiKey: "ollama", // Required by SDK, ignored by Ollama │
+│   });                                                       │
+└──────────────────────────────┬──────────────────────────────┘
+                               │ Standard OpenAI REST Protocol
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│                Local Inference Engine (Ollama)              │
+│                 http://localhost:11434/v1                   │
+└─────────────────────────────────────────────────────────────┘
+
+```
+
+The underlying network payload generated by `client.chat.completions.create` remains standard JSON:
+
+```json
+{
+  "model": "llama3.2:3b",
+  "messages": [
+    { "role": "system", "content": "You are a backend validator." },
+    { "role": "user", "content": "Healthcheck: Ping" }
+  ],
+  "temperature": 0.1
+}
+
+```
+
+The engine responds with a standard envelope:
+
+```json
+{
+  "id": "chatcmpl-914",
+  "choices": [
+    {
+      "message": { "role": "assistant", "content": "Pong" }
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 19,
+    "completion_tokens": 2,
+    "total_tokens": 21
+  }
+}
+
+```
+
+---
+
+## 1.4 Hands-On Build: The Enterprise Client Wrapper
+
+Let's implement our production-ready client wrapper using TypeScript, the `openai` npm package, and `zod` validation.
+
+### Step 1: Package Configuration
+
+In `modules/01-local-runtime-protocol/package.json`:
+
+```json
+{
+  "name": "@masterclass/01-local-runtime-protocol",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "tsx src/index.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "openai": "^4.85.4",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  }
+}
+
+```
+
+### Step 2: Defining Schemas and Types
+
+In `src/index.ts`, define runtime schemas for inputs and outputs:
+
+```typescript
+import OpenAI from "openai";
+import { z } from "zod";
+
+export const ChatRoleSchema = z.enum(["system", "user", "assistant"]);
+
+export const ChatMessageSchema = z.object({
+  role: ChatRoleSchema,
+  content: z.string().min(1, "Message content cannot be empty"),
+});
+
+export type ChatMessage = z.infer<typeof ChatMessageSchema>;
+
+export interface InferenceConfig {
+  baseUrl?: string;
+  apiKey?: string;
+  model: string;
+  temperature?: number;
+  timeoutMs?: number;
+}
+
+export interface InferenceResponse {
+  content: string;
+  totalTokens: number;
+  promptTokens: number;
+  completionTokens: number;
+}
+
+```
+
+### Step 3: Implementing the Production Wrapper
+
+Implement `runChatCompletion`, configuring endpoint fallback, payload validation, and request timeouts:
+
+```typescript
+export async function runChatCompletion(
+  messages: ChatMessage[],
+  config: InferenceConfig
+): Promise<InferenceResponse> {
+  // 1. Resolve target URL (fallback hierarchy)
+  const baseURL = (
+    config.baseUrl ||
+    process.env.LLM_BASE_URL ||
+    "http://localhost:11434/v1"
+  ).replace(/\/+$/, "");
+
+  // 2. Validate input array before issuing network calls
+  if (!messages || messages.length === 0) {
+    throw new Error("Messages array cannot be empty");
+  }
+  messages.forEach((msg) => ChatMessageSchema.parse(msg));
+
+  // 3. Initialize OpenAI SDK pointing to our local engine
+  const client = new OpenAI({
+    baseURL,
+    apiKey: config.apiKey || process.env.LLM_API_KEY || "ollama",
+    timeout: config.timeoutMs ?? 30000,
+    maxRetries: 2,
+  });
+
+  try {
+    // 4. Dispatch chat completion request
+    const response = await client.chat.completions.create({
+      model: config.model,
+      messages,
+      temperature: config.temperature ?? 0.2,
+    });
+
+    const choice = response.choices[0];
+    if (!choice || !choice.message?.content) {
+      throw new Error("Invalid response: Model returned an empty choice payload");
+    }
+
+    return {
+      content: choice.message.content,
+      totalTokens: response.usage?.total_tokens ?? 0,
+      promptTokens: response.usage?.prompt_tokens ?? 0,
+      completionTokens: response.usage?.completion_tokens ?? 0,
+    };
+  } catch (error: any) {
+    if (error instanceof OpenAI.APIConnectionTimeoutError) {
+      throw new Error(`Inference timed out after ${config.timeoutMs ?? 30000}ms`);
+    }
+    if (error instanceof OpenAI.APIConnectionError) {
+      throw new Error(
+        `Failed to connect to inference server at ${baseURL}. Verify that your local runtime (Ollama) is active.`
+      );
+    }
+    throw error;
+  }
+}
+
+```
+
+---
+
+## 1.5 Enterprise Hardening: Defending the Boundaries
+
+* **The Trailing Slash Bug:** Trailing slashes in environment variables (`http://localhost:11434/v1/`) can trigger route mismatches. `.replace(/\/+$/, "")` normalizes formatting before the SDK processes it.
+* **Deadlock Protection:** Local inference runs on system hardware. If the daemon becomes unresponsive under high load, `timeout: config.timeoutMs` prevents the Node.js event loop from stalling indefinitely.
+* **Sanitized Inputs:** `ChatMessageSchema.parse(msg)` prevents empty messages or unsupported roles from reaching the inference engine, catching client errors immediately.
+
+---
+
+## 1.6 Verification: Running Automated Tests
+
+Verify client mechanics with mock unit tests in `src/index.test.ts`:
+
+```typescript
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import OpenAI from "openai";
+import { runChatCompletion } from "./index.js";
+
+describe("Module 01: Local LLM Runtime & Protocol", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("should extract content and token usage from completion", async () => {
+    const mockCreate = vi.fn().mockResolvedValue({
+      choices: [{ message: { content: "System online." } }],
+      usage: { total_tokens: 15, prompt_tokens: 10, completion_tokens: 5 },
+    });
+
+    vi.spyOn(OpenAI.prototype, "chat", "get").mockReturnValue({
+      completions: { create: mockCreate } as any,
+    } as any);
+
+    const result = await runChatCompletion(
+      [{ role: "user", content: "Status" }],
+      { model: "llama3.2:3b" }
+    );
+
+    expect(result.content).toBe("System online.");
+    expect(result.totalTokens).toBe(15);
+  });
+
+  it("should reject empty message arrays before network calls", async () => {
+    await expect(
+      runChatCompletion([], { model: "llama3.2:3b" })
+    ).rejects.toThrow("Messages array cannot be empty");
+  });
+});
+
+```
+
+Run the test suite:
 
 ```bash
-cd solution
-npm install
-npm start
 npm test
-npm run build
+
 ```
 
-`npm start` makes one live request to the configured endpoint and prints the assistant response and token count. Tests mock the network and do not require Ollama.
+Then test against your active local model:
 
-## Configuration
+```bash
+ollama run llama3.2:3b "Respond with 'SYSTEM VERIFIED'"
 
-```env
-LLM_BASE_URL=http://localhost:11434/v1
-LLM_API_KEY=ollama
-LLM_MODEL=llama3.2:3b
 ```
 
-For a compatible provider, change the URL, key, and deployed model name. The implementation reads `LLM_MODEL` when `model` is not supplied in code. A provider with a different API contract needs an adapter at the inference boundary.
+Your system is now decoupled. The codebase runs identically against a local development laptop or an enterprise NVIDIA cluster.
 
-## Exercise
-
-Implement the numbered TODOs in `starter/src/index.ts` in two phases. First make the simplest successful request work and run `npm start`. Then complete the safety TODOs and compare with `solution/src/index.ts`.
-
-The `starter/steps/` directory contains read-only checkpoints used by the lecture:
-
-| Version | Purpose |
-| --- | --- |
-| `01-scaffold.ts` | Original TODO scaffold |
-| `02-configured-client.ts` | TODOs 1–2: resolve configuration and construct the client |
-| `03-happy-path.ts` | TODOs 3–4: make a real request and return the response |
-| `04-validated.ts` | TODO 5: validate input and response data with Zod |
-| `05-hardened.ts` | TODO 6: final timeout and error-handling behavior |
-
-Edit only `starter/src/index.ts`. Use the checkpoint files to compare progress or recover if you fall behind during the video.
-
-## Build → Break → Harden → Verify → Integrate
-
-- **Build:** create an OpenAI SDK client with configurable endpoint and credentials.
-- **Break:** submit invalid messages and simulate a hanging request.
-- **Harden:** add Zod validation, response checks, errors, and timeout handling.
-- **Verify:** run deterministic tests and the TypeScript build.
-- **Integrate:** use this client for later RAG and agent modules.
-
-The Compose file starts the Ollama runtime but does not download a model automatically. This is intentional so learners can see that the runtime and model are separate resources. For a published course release, pin the tested Ollama image version instead of relying on `latest`.
+Next in **Module 02**, we inspect the internal data format processed by models: **Token Economics, Context Budgets & Vector Space Math**.
